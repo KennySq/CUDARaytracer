@@ -2,39 +2,39 @@
 #include"Hittable.cuh"
 #include"Sphere.cuh"
 
-extern __shared__ Hittable* sharedSceneMemory[];
-__shared__ Hittable** deviceScene;
+__device__ Hittable** deviceScene;
+__device__ Sphere* deviceSpheres;
 
-inline __global__ void kernelMakeShared()
+inline __global__ void kernelMakeShared(int count, Hittable** scenePtr, Sphere* sceneSpheres)
 {
-	if (threadIdx.x == 0)
+
+	//	scenePtr = (Hittable**)malloc(sizeof(Hittable*) * count);
+	sceneSpheres = (Sphere*)malloc(sizeof(Sphere) * count);
+
+	for (unsigned int i = 0; i < count; i++)
 	{
-		deviceScene = (Hittable**)sharedSceneMemory;
+		scenePtr[i] = &sceneSpheres[i];
 	}
 
-	printf("%p\n", deviceScene);
-
-	__syncthreads();
+	printf("%p\n", scenePtr);
 }
 
 
 class HittableList : public Hittable
 {
 public:
-	__host__ __device__ HittableList()
+	__host__ __device__ HittableList() : mCount(0)
 	{
-//		kernelMakeShared << <1, 1, 49152 >> > ();
 	}
-//	__device__ HittableList();
 
-
-// Hittable을(를) 통해 상속됨
-	virtual __device__ bool Hit(const Ray& r, double tMin, double tMax, HitRecord& rec, Hittable**  world) const override
+	virtual __device__ bool Hit(const Ray& r, double tMin, double tMax, HitRecord& rec, Hittable** world) const override
 	{
 		HitRecord tempRec;
 		bool hitAnything = false;
 
 		double closest = tMax;
+
+		//printf("%p\n", world[0]);
 
 		for (unsigned int i = 0; i < mCount; i++)
 		{
@@ -44,6 +44,8 @@ public:
 				closest = tempRec.t;
 				rec = tempRec;
 			}
+
+			__syncthreads();
 		}
 
 		return hitAnything;
@@ -54,10 +56,14 @@ public:
 };
 
 
-inline __global__ void AddSphere(Sphere* sphere, HittableList* deviceScene, Hittable** rawScene)
+inline __global__ void AddSphere(Vec3 center, double radius, HittableList* deviceScene, Hittable** rawScene)
 {
 
-	rawScene[deviceScene->mCount] = sphere;
+	Sphere* sph = (Sphere*)rawScene[deviceScene->mCount];
+
+	sph->mCenter = center;
+	sph->mRadius = radius;
+
 	deviceScene->mCount++;
 
 	return;

@@ -108,37 +108,11 @@ void CopyDeviceToHost(void* device, void* host, unsigned int count)
 	cudaErrorCheck(error);
 }
 
-Raytracer::Raytracer(HWND handle, HINSTANCE instance, unsigned int width, unsigned int height)
-	: mHandle(handle), mInst(instance), mWidth(width), mHeight(height)
-{
-	BITMAPINFO bitInfo{};
-
-	bitInfo.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-	bitInfo.bmiHeader.biWidth = width;
-	bitInfo.bmiHeader.biHeight = height;
-	bitInfo.bmiHeader.biBitCount = 32;
-	bitInfo.bmiHeader.biPlanes = 1;
-	bitInfo.bmiHeader.biCompression = BI_RGB;
-
-	HDC dc = GetDC(mHandle);
-
-	mBitmap = CreateDIBSection(dc, &bitInfo, DIB_RGB_COLORS, (void**)(&mPixels), nullptr, 0);
-	mMemoryDC = CreateCompatibleDC(dc);
-	SelectObject(mMemoryDC, mBitmap);
-	ReleaseDC(mHandle, dc);
-
-	cudaError error = cudaMalloc((void**)&gPixels, sizeof(DWORD) * width * height);
-	cudaErrorCheck(error);
-	
-	error = cudaMalloc((void**)&gWorld, sizeof(HittableList));
-	cudaErrorCheck(error);
-
-	kernelMakeShared << <1, 1, 49152 >> > ();
-}
-
 __device__ Color RayColor(LPDWORD pixels, const Ray& r, const HittableList& world, Hittable** worldObjects, int width, int height)
 {
 	HitRecord rec;
+
+//	printf("%p\n", worldObjects);
 
 	if (world.Hit(r, 0, infinity, rec, worldObjects))
 	{
@@ -169,12 +143,56 @@ __global__ void kernelRender(LPDWORD pixels, int width, int height, const Hittab
 
 	Ray r(origin, lowerLeft + u * horizontal + v * vertical - origin);
 
+	printf("%p\n", &world);
+
 	Color out = RayColor(pixels, r, world, worldObjects, width, height);
 
 	setColor(pixels, width, height, out);
 
 	return;
 }
+
+
+Raytracer::Raytracer(HWND handle, HINSTANCE instance, unsigned int width, unsigned int height)
+	: mHandle(handle), mInst(instance), mWidth(width), mHeight(height)
+{
+	BITMAPINFO bitInfo{};
+
+	bitInfo.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+	bitInfo.bmiHeader.biWidth = width;
+	bitInfo.bmiHeader.biHeight = height;
+	bitInfo.bmiHeader.biBitCount = 32;
+	bitInfo.bmiHeader.biPlanes = 1;
+	bitInfo.bmiHeader.biCompression = BI_RGB;
+
+	HDC dc = GetDC(mHandle);
+
+	mBitmap = CreateDIBSection(dc, &bitInfo, DIB_RGB_COLORS, (void**)(&mPixels), nullptr, 0);
+	mMemoryDC = CreateCompatibleDC(dc);
+	SelectObject(mMemoryDC, mBitmap);
+	ReleaseDC(mHandle, dc);
+
+	cudaError error = cudaMalloc((void**)&gPixels, sizeof(DWORD) * width * height);
+	cudaErrorCheck(error);
+
+	error = cudaMalloc((void**)&gWorld, sizeof(HittableList));
+	cudaErrorCheck(error);
+
+	error = cudaMalloc((void**)&deviceScene, sizeof(Hittable*) * 1);
+	cudaErrorCheck(error);
+
+	error = cudaMalloc((void**)&deviceSpheres, sizeof(Sphere) * 1);
+	cudaErrorCheck(error);
+
+
+	//kernelMakeShared << <1, 1 >> > (1, deviceScene, deviceSpheres);
+
+
+	//AddSphere << <1, 1 >> > (Vec3(0, 0, 0), 5.0, gWorld, deviceScene);
+	
+	cudaDeviceSynchronize();
+}
+
 
 void Raytracer::Run()
 {
@@ -187,7 +205,7 @@ void Raytracer::Run()
 	cudaDeviceSynchronize();
 
 
-
+	
 	CopyDeviceToHost<DWORD>(gPixels, mPixels, mWidth * mHeight);
 
 }
