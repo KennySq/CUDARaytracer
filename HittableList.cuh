@@ -2,7 +2,7 @@
 #include"Hittable.cuh"
 #include"Sphere.cuh"
 
-__device__ Hittable** deviceScene;
+__device__ Hittable** deviceScene = nullptr;
 __device__ Sphere* deviceSpheres;
 
 inline __global__ void kernelMakeShared(int count, Hittable** scenePtr, Sphere* sceneSpheres)
@@ -11,10 +11,10 @@ inline __global__ void kernelMakeShared(int count, Hittable** scenePtr, Sphere* 
 	//	scenePtr = (Hittable**)malloc(sizeof(Hittable*) * count);
 	sceneSpheres = (Sphere*)malloc(sizeof(Sphere) * count);
 
-	for (unsigned int i = 0; i < count; i++)
-	{
-		scenePtr[i] = &sceneSpheres[i];
-	}
+	//for (unsigned int i = 0; i < count; i++)
+	//{
+	//	scenePtr[i] = &sceneSpheres[i];
+	//}
 
 	printf("%p\n", scenePtr);
 }
@@ -36,17 +36,17 @@ public:
 
 		//printf("%p\n", world[0]);
 
-		for (unsigned int i = 0; i < mCount; i++)
-		{
-			if (world[i]->Hit(r, tMin, closest, tempRec, world))
-			{
-				hitAnything = true;
-				closest = tempRec.t;
-				rec = tempRec;
-			}
+		//for (unsigned int i = 0; i < mCount; i++)
+		//{
+		//	if (world[i]->Hit(r, tMin, closest, tempRec, world))
+		//	{
+		//		hitAnything = true;
+		//		closest = tempRec.t;
+		//		rec = tempRec;
+		//	}
 
-			__syncthreads();
-		}
+		//	__syncthreads();
+		//}
 
 		return hitAnything;
 	}

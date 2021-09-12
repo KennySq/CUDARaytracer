@@ -185,7 +185,7 @@ Raytracer::Raytracer(HWND handle, HINSTANCE instance, unsigned int width, unsign
 	cudaErrorCheck(error);
 
 
-	//kernelMakeShared << <1, 1 >> > (1, deviceScene, deviceSpheres);
+	kernelMakeShared << <1, 1 >> > (1, deviceScene, deviceSpheres);
 
 
 	//AddSphere << <1, 1 >> > (Vec3(0, 0, 0), 5.0, gWorld, deviceScene);
@@ -203,8 +203,6 @@ void Raytracer::Run()
 	
 	kernelRender << <grids, blocks >> > (gPixels, mWidth, mHeight, *gWorld, deviceScene);
 	cudaDeviceSynchronize();
-
-
 	
 	CopyDeviceToHost<DWORD>(gPixels, mPixels, mWidth * mHeight);
 
