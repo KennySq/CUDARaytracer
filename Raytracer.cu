@@ -1,8 +1,11 @@
 #include "Raytracer.cuh"
 
 __device__ DWORD* gPixels;
-__device__ HittableList* gWorld;
+__device__ Hittable** gWorld;
+//__device__ Hittable*** gRawScene;
+__device__ Hittable** gSpheres;
 
+const unsigned int gSphereCount = 4;
 
 //void kernelInitConstData(double* constScalar, Vec3* constVector)
 //{
@@ -101,6 +104,37 @@ __global__ void kernelBackground(LPDWORD pixels, int width, int height)
 
 }
 
+__global__ void makeResources(Hittable** world, Hittable** spheres, unsigned int count)
+{
+	if (threadIdx.x == 0)
+	{
+		(*world) = new HittableList();
+
+		//(*raw) = new Hittable * [count];
+		(*spheres) = new Sphere[count];
+
+		printf("makeResources => %p\n", spheres[0]);
+	}
+
+	__syncthreads();
+
+	return;
+}
+
+__global__ void AddSphere(Vec3 center, double radius, unsigned int index, Hittable** spheres, Hittable** world)
+{
+	if (threadIdx.x == 0)
+	{
+		Sphere* sph = (Sphere*)spheres[index];
+
+		sph->mCenter = center;
+		sph->mRadius = radius;
+	}
+
+	__syncthreads();
+
+}
+
 template<typename _Ty>
 void CopyDeviceToHost(void* device, void* host, unsigned int count)
 {
@@ -108,16 +142,25 @@ void CopyDeviceToHost(void* device, void* host, unsigned int count)
 	cudaErrorCheck(error);
 }
 
-__device__ Color RayColor(LPDWORD pixels, const Ray& r, const HittableList& world, Hittable** worldObjects, int width, int height)
+//void AddSphere(Vec3 center, double radius, HittableList* world, Hittable** raw, Sphere* spheres)
+//{
+//	HittableList list;
+//
+//	CopyDeviceToHost<HittableList>((void*)world, (void*)&list, 1);
+//
+//	return;
+//}
+
+__device__ Color RayColor(LPDWORD pixels, Ray& r, Hittable** world, Hittable** spheres, int width, int height)
 {
 	HitRecord rec;
 
-//	printf("%p\n", worldObjects);
-
-	if (world.Hit(r, 0, infinity, rec, worldObjects))
+	if ((*world)->Hit(r, 0, infinity, rec, spheres, gSphereCount))
 	{
 		return 0.5 * (rec.normal + Color(1, 1, 1));
 	}
+
+	__syncthreads();
 
 	Vec3 UnitDirection = UnitVector(r.mDirection);
 	double t = 0.5 * (UnitDirection.y() + 1.0);
@@ -126,7 +169,7 @@ __device__ Color RayColor(LPDWORD pixels, const Ray& r, const HittableList& worl
 
 }
 
-__global__ void kernelRender(LPDWORD pixels, int width, int height, const HittableList& world, Hittable** worldObjects)
+__global__ void kernelRender(LPDWORD pixels, int width, int height, Hittable** world, Hittable** spheres, unsigned int count)
 {
 	int x = blockIdx.x * blockDim.x + threadIdx.x;
 	int y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -143,9 +186,9 @@ __global__ void kernelRender(LPDWORD pixels, int width, int height, const Hittab
 
 	Ray r(origin, lowerLeft + u * horizontal + v * vertical - origin);
 
-	printf("%p\n", &world);
+	//printf("%p\n", &world);
 
-	Color out = RayColor(pixels, r, world, worldObjects, width, height);
+	Color out = RayColor(pixels, r, world, spheres, width, height);
 
 	setColor(pixels, width, height, out);
 
@@ -175,24 +218,21 @@ Raytracer::Raytracer(HWND handle, HINSTANCE instance, unsigned int width, unsign
 	cudaError error = cudaMalloc((void**)&gPixels, sizeof(DWORD) * width * height);
 	cudaErrorCheck(error);
 
-	error = cudaMalloc((void**)&gWorld, sizeof(HittableList));
+	error = cudaMalloc((void**)&gWorld, sizeof(Hittable**));
 	cudaErrorCheck(error);
 
-	error = cudaMalloc((void**)&deviceScene, sizeof(Hittable*) * 1);
+	//error = cudaMalloc((void**)&gRawScene, sizeof(Hittable***) * gSphereCount);
+	//cudaErrorCheck(error);
+
+	error = cudaMalloc((void**)&gSpheres, sizeof(Hittable**) * gSphereCount);
 	cudaErrorCheck(error);
 
-	error = cudaMalloc((void**)&deviceSpheres, sizeof(Sphere) * 1);
-	cudaErrorCheck(error);
+	makeResources << <1, 1 >> > (gWorld, gSpheres, gSphereCount);
 
+	AddSphere << <1, 1 >> > (Vec3(0, 0, -1), 0.5, 0, gSpheres, gWorld);
 
-	kernelMakeShared << <1, 1 >> > (1, deviceScene, deviceSpheres);
-
-
-	//AddSphere << <1, 1 >> > (Vec3(0, 0, 0), 5.0, gWorld, deviceScene);
-	
 	cudaDeviceSynchronize();
 }
-
 
 void Raytracer::Run()
 {
@@ -201,10 +241,12 @@ void Raytracer::Run()
 	
 	//kernelBackground << <grids, blocks >> > (gPixels, mWidth ,mHeight);
 	
-	kernelRender << <grids, blocks >> > (gPixels, mWidth, mHeight, *gWorld, deviceScene);
+	kernelRender << <grids, blocks >> > (gPixels, mWidth, mHeight, gWorld, gSpheres, gSphereCount);
 	cudaDeviceSynchronize();
 	
+
 	CopyDeviceToHost<DWORD>(gPixels, mPixels, mWidth * mHeight);
+	std::cout << cudaGetErrorString(cudaGetLastError()) << std::endl;
 
 }
 

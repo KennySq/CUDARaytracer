@@ -6,11 +6,11 @@ class Ray
 {
 public:
 	__device__ Ray() {}
-	__device__ Ray(const Point3& origin, const Vec3& direction)
+	__device__ Ray(Point3 origin, Vec3 direction)
 		: mOrigin(origin), mDirection(direction)
 	{}
 
-	inline __device__ Point3 At(double t) const
+	inline __device__ Point3 At(double t)
 	{
 		return mOrigin + t * mDirection;
 	}
