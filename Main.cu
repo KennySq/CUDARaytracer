@@ -2,6 +2,8 @@
 
 #include <windows.h>
 #include <tchar.h>
+#include<iostream>
+#include<string>
 
 #define APP_WIDTH 800
 #define APP_HEIGHT 600
@@ -111,10 +113,13 @@ int WINAPI WinMain(HINSTANCE hInstance,
     return (int)msg.wParam;
 }
 
+clock_t start, end, duration;
+
 LRESULT WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     PAINTSTRUCT ps;
     HDC hdc;
+    std::string str;
     switch (message)
     {
     case WM_CREATE:
@@ -124,15 +129,28 @@ LRESULT WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     break;
     case WM_TIMER:
     {
+        start = clock();
+
         rayTracer->Run();
+        end = clock();
+
+        duration = (double)end - start;
+
         InvalidateRgn(hWnd, nullptr, true);
     }
     break;
     case WM_PAINT:
         hdc = BeginPaint(hWnd, &ps);
 
+
         BitBlt(hdc, 0, 0, APP_WIDTH, APP_HEIGHT, rayTracer->GetMemoryDC(), 0, 0, SRCCOPY);
         
+        str = std::to_string((double)(duration));
+
+        str += " ms";
+
+        TextOut(hdc, 0, 0, str.c_str(), str.size());
+
 
         EndPaint(hWnd, &ps);
         break;

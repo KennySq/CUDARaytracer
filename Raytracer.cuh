@@ -5,7 +5,6 @@
 #include<Windows.h>
 #include<iostream>
 
-
 #ifdef __cplusplus
 extern "C" {
 #endif

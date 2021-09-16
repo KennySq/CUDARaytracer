@@ -3,21 +3,6 @@
 #include"Sphere.cuh"
 
 
-//inline __global__ void kernelMakeShared(int count, Hittable** scenePtr, Sphere* sceneSpheres)
-//{
-//
-//	//	scenePtr = (Hittable**)malloc(sizeof(Hittable*) * count);
-//	sceneSpheres = (Sphere*)malloc(sizeof(Sphere) * count);
-//
-//	//for (unsigned int i = 0; i < count; i++)
-//	//{
-//	//	scenePtr[i] = &sceneSpheres[i];
-//	//}
-//
-//	printf("%p\n", scenePtr);
-//}
-
-
 class HittableList : public Hittable
 {
 public:
@@ -25,18 +10,14 @@ public:
 	{
 	}
 
-	__device__ virtual bool Hit(Ray& r, double tMin, double tMax, HitRecord& rec, Hittable** world, unsigned int count) const override
+	__device__ virtual bool Hit(Ray& r, float tMin, float tMax, HitRecord& rec, Hittable** world, unsigned int count) const override
 	{
 		HitRecord tempRec;
 		bool hitAnything = false;
 
-		double closest = tMax;
+		float closest = tMax;
 
-
-		//printf("world[0] => %p\n", *world[0]);
-		//printf("world[1] => %p\n", *world[1]);
-
-		for (unsigned int i = 0; i < 1; i++)
+		for (unsigned int i = 0; i < count; i++)
 		{
 			Sphere* sph = (Sphere*)(world[i]);
 			if (sph->Hit(r, tMin, closest, tempRec, world, count))
@@ -46,27 +27,9 @@ public:
 				rec = tempRec;
 			}
 
-			__syncthreads();
 		}
 
 		return hitAnything;
 	}
 
 };
-
-
-//inline __global__ void AddSphere(Vec3 center, double radius, HittableList* deviceScene, Hittable** rawScene, Sphere* spheres)
-//{
-//	unsigned int count = deviceScene->mCount;
-//
-//	Sphere* sph = &spheres[count];
-//
-//	sph->mCenter = center;
-//	sph->mRadius = radius;
-//
-//	deviceScene->mCount++;
-//
-//	rawScene[count] = (Hittable*)sph;
-//
-//	return;
-//}

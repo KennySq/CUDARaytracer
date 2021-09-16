@@ -10,7 +10,7 @@ public:
 		: mOrigin(origin), mDirection(direction)
 	{}
 
-	inline __device__ Point3 At(double t)
+	inline __device__ Point3 At(float t)
 	{
 		return mOrigin + t * mDirection;
 	}

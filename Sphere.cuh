@@ -1,50 +1,49 @@
 #pragma once
 #include"Hittable.cuh"
 
-// 32 + 8 (virtual?)
 class Sphere : public Hittable
 {
 public:
 	__device__ Sphere() {}
-	__device__ Sphere(Point3 cen, double r) : mCenter(cen), mRadius(r) {}
+	__device__ Sphere(Point3 cen, float r) : mCenter(cen), mRadius(r) {}
 
-	__device__ virtual bool Hit(Ray& r, double tMin, double tMax, HitRecord& rec, Hittable** world, unsigned int count) const override
+	__device__ virtual bool Hit(Ray& r, float tMin, float tMax, HitRecord& rec, Hittable** world, unsigned int count) const override
 	{
-
 		Vec3 oc = r.mOrigin - mCenter;
-		double a = r.mDirection.LengthSquared();
-		double bHalf = Dot(oc, r.mDirection);
-		double c = oc.LengthSquared() - mRadius * mRadius;
+		float a = Dot(r.mDirection, r.mDirection);
+		float b = Dot(oc, r.mDirection);
+		float c = Dot(oc,oc) - mRadius * mRadius;
 	
-		double discriminant = bHalf * bHalf - a * c;
+		float discriminant = b * b - a * c;
 
-		if (discriminant < 0)
+		if (discriminant > 0)
 		{
-			return false;
-		}
+			float temp = (-b - sqrt(discriminant)) / a;
 
-		double sqrtd = sqrtf(discriminant);
-
-		double root = (-bHalf - sqrtd) / a;
-		if (root < tMin || root > tMax)
-		{
-			root = (-bHalf + sqrtd) / a;
-			if (root < tMin || tMax < root)
+			if (temp < tMax && temp > tMin)
 			{
-				return false;
+				rec.t = temp;
+				rec.p = r.At(rec.t);
+				rec.normal = (rec.p - mCenter) / mRadius;
+				return true;
 			}
+
+			temp = (-b + sqrt(discriminant)) / a;
+
+			if (temp < tMax && temp > tMin)
+			{
+				rec.t = temp;
+				rec.p = r.At(rec.t);
+				rec.normal = (rec.p - mCenter) / mRadius;
+				return true;
+			}
+
 		}
-
-		//rec.t = root;
-		rec.p = r.At(rec.t); // ??
-
-		Vec3 outwardNormal = (rec.p - mCenter) / mRadius;
-		//rec.SetFaceNormal(r, outwardNormal);
-		return true;
+		return false;
 	
 	}
 
 public:
-	Point3 mCenter; // 24
-	double mRadius; // 8
+	Point3 mCenter;
+	float mRadius;
 };
